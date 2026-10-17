@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chinese Matching Practice</title>
+  <style>
+    :root {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --card-border: #333333;
+      --text-color: #e0e0e0;
+      --accent-color: #4da6ff;
+      --success-color: #4caf50;
+      --error-color: #f44336;
+      --selected-color: #ff9800;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    header {
+      width: 100%;
+      max-width: 800px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      font-size: 0.9rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    button {
+      background-color: #2c2c2c;
+      color: var(--text-color);
+      border: 1px solid var(--card-border);
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    button:hover:not(:disabled) {
+      background-color: #3d3d3d;
+      border-color: var(--accent-color);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background-color: #0056b3;
+      border-color: var(--accent-color);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background-color: #0069d9;
+    }
+
+    .input-section {
+      width: 100%;
+      max-width: 800px;
+      margin-bottom: 20px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 80px;
+      background: var(--card-bg);
+      color: var(--text-color);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px;
+      font-family: monospace;
+      resize: vertical;
+    }
+
+    .game-container {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      justify-content: space-between;
+      gap: 40px;
+      margin-top: 20px;
+    }
+
+    svg#lines-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      z-index: 20;
+    }
+
+    .item-card {
+      background: var(--card-bg);
+      border: 2px solid var(--card-border);
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.1s, border-color 0.2s, background-color 0.2s;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+    }
+
+    .item-card:hover {
+      border-color: #555;
+    }
+
+    .item-card.selected {
+      border-color: var(--selected-color);
+      background-color: #2a2215;
+    }
+
+    .item-card.matched {
+      border-color: var(--success-color);
+      background-color: #122814;
+      cursor: default;
+    }
+
+    .item-card.error {
+      border-color: var(--error-color);
+      background-color: #331515;
+      animation: shake 0.4s ease-in-out;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+
+    .message {
+      margin-top: 15px;
+      font-weight: bold;
+      min-height: 24px;
+      color: var(--accent-color);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Chinese Cross-Matching</h1>
+    <div class="stats">
+      <span id="batch-info">Batch: 0 / 0</span>
+      <span id="streak-info">Batch Completion: 0 / 5</span>
+    </div>
+    <div class="controls">
+      <button id="reset-btn" onclick="retryBatch()">Shuffle & Reset Batch</button>
+      <button id="next-btn" class="btn-primary" onclick="manualNextBatch()" disabled>Next Batch →</button>
+    </div>
+  </header>
+
+  <section class="input-section">
+    <textarea id="json-input" placeholder="Paste JSON output from LLM here..."></textarea>
+    <div style="margin-top: 5px; display: flex; justify-content: flex-end;">
+      <button onclick="loadCustomData()">Load Words</button>
+    </div>
+  </section>
+
+  <div class="message" id="status-msg">Load vocabulary to start matching!</div>
+
+  <div class="game-container" id="game-board">
+    <svg id="lines-layer"></svg>
+    <div class="column" id="left-col"></div>
+    <div class="column" id="right-col"></div>
+  </div>
+
+  <script>
+    // Initial Default Dataset
+    let defaultVocab = [
+      { id: "1", cn: "你好 (nǐ hǎo)", en: "Hello" },
+      { id: "2", cn: "谢谢 (xiè xie)", en: "Thank you" },
+      { id: "3", cn: "再见 (zài jiàn)", en: "Goodbye" },
+      { id: "4", cn: "朋友 (péng you)", en: "Friend" },
+      { id: "5", cn: "学习 (xué xí)", en: "To study / learn" },
+      { id: "6", cn: "猫 (māo)", en: "Cat" },
+      { id: "7", cn: "狗 (gǒu)", en: "Dog" },
+      { id: "8", cn: "水 (shuǐ)", en: "Water" },
+      { id: "9", cn: "茶 (chá)", en: "Tea" },
+      { id: "10", cn: "中国 (zhōng guó)", en: "China" }
+    ];
+
+    let fullVocab = [...defaultVocab];
+    let activeBatches = []; 
+    let currentBatchIndex = 0;
+
+    // State for current batch
+    let currentBatchItems = [];
+    let currentLeft = [];
+    let currentRight = [];
+
+    let selectedLeft = null; // element reference
+    let selectedRight = null;
+
+    let matchedPairs = []; // array of {leftId, rightId}
+    let streakCount = 0; // Number of times current batch completed correctly
+
+    function initGame() {
+      // Divide fullVocab into batches of 5
+      activeBatches = [];
+      let temp = [...fullVocab];
+      while(temp.length > 0) {
+        activeBatches.push(temp.splice(0, 5));
+      }
+      currentBatchIndex = 0;
+      loadBatch(currentBatchIndex);
+    }
+
+    function loadBatch(index) {
+      if(index >= activeBatches.length) {
+        document.getElementById('status-msg').innerText = "🎉 All batches completed & mastered!";
+        document.getElementById('left-col').innerHTML = '';
+        document.getElementById('right-col').innerHTML = '';
+        clearLines();
+        return;
+      }
+
+      currentBatchItems = activeBatches[index];
+      streakCount = 0;
+      setupBatchDisplay();
+    }
+
+    function setupBatchDisplay() {
+      matchedPairs = [];
+      selectedLeft = null;
+      selectedRight = null;
+      clearLines();
+
+      document.getElementById('next-btn').disabled = true;
+      document.getElementById('batch-info').innerText = `Batch: ${currentBatchIndex + 1} / ${activeBatches.length}`;
+      document.getElementById('streak-info').innerText = `Batch Completion: ${streakCount} / 5`;
+
+      if (streakCount >= 5) {
+        document.getElementById('status-msg').innerText = "✨ Batch Mastered! Click 'Next Batch' to continue.";
+        document.getElementById('next-btn').disabled = false;
+      } else {
+        document.getElementById('status-msg').innerText = `Match all 5 items! (${streakCount}/5 complete)`;
+      }
+
+      // Shuffle Left and Right separately
+      currentLeft = [...currentBatchItems].sort(() => Math.random() - 0.5);
+      currentRight = [...currentBatchItems].sort(() => Math.random() - 0.5);
+
+      renderColumns();
+    }
+
+    function renderColumns() {
+      const leftCol = document.getElementById('left-col');
+      const rightCol = document.getElementById('right-col');
+
+      leftCol.innerHTML = '';
+      rightCol.innerHTML = '';
+
+      currentLeft.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.dataset.id = item.id;
+        card.dataset.side = 'left';
+        card.innerText = item.cn;
+        card.onclick = () => handleSelect(card, 'left');
+        leftCol.appendChild(card);
+      });
+
+      currentRight.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.dataset.id = item.id;
+        card.dataset.side = 'right';
+        card.innerText = item.en;
+        card.onclick = () => handleSelect(card, 'right');
+        rightCol.appendChild(card);
+      });
+    }
+
+    function handleSelect(card, side) {
+      if (card.classList.contains('matched')) return;
+
+      if (side === 'left') {
+        if (selectedLeft) selectedLeft.classList.remove('selected');
+        selectedLeft = card;
+        card.classList.add('selected');
+      } else {
+        if (selectedRight) selectedRight.classList.remove('selected');
+        selectedRight = card;
+        card.classList.add('selected');
+      }
+
+      if (selectedLeft && selectedRight) {
+        checkMatch();
+      }
+    }
+
+    function checkMatch() {
+      const leftId = selectedLeft.dataset.id;
+      const rightId = selectedRight.dataset.id;
+
+      if (leftId === rightId) {
+        // Correct Match
+        selectedLeft.classList.remove('selected');
+        selectedRight.classList.remove('selected');
+        selectedLeft.classList.add('matched');
+        selectedRight.classList.add('matched');
+
+        // Draw Line
+        drawLine(selectedLeft, selectedRight);
+
+        matchedPairs.push({ left: selectedLeft, right: selectedRight });
+
+        selectedLeft = null;
+        selectedRight = null;
+
+        // Check if batch fully matched
+        if (matchedPairs.length === currentBatchItems.length) {
+          streakCount++;
+          document.getElementById('streak-info').innerText = `Batch Completion: ${streakCount} / 5`;
+
+          if (streakCount >= 5) {
+            document.getElementById('status-msg').innerText = "🏆 Batch Mastered! You can now move to the Next Batch.";
+            document.getElementById('next-btn').disabled = false;
+          } else {
+            document.getElementById('status-msg').innerText = "Great job! Resetting board for practice repetition...";
+            setTimeout(() => {
+              setupBatchDisplay();
+            }, 1200);
+          }
+        }
+      } else {
+        // Incorrect Match - FAIL RULE: Reset entire batch progress & shuffle position
+        selectedLeft.classList.add('error');
+        selectedRight.classList.add('error');
+        document.getElementById('status-msg').innerText = "❌ Wrong match! Batch reset & positions shuffled.";
+
+        setTimeout(() => {
+          // Reset current attempt
+          setupBatchDisplay();
+        }, 1000);
+      }
+    }
+
+    function drawLine(el1, el2) {
+      const svg = document.getElementById('lines-layer');
+      const containerRect = document.getElementById('game-board').getBoundingClientRect();
+
+      const rect1 = el1.getBoundingClientRect();
+      const rect2 = el2.getBoundingClientRect();
+
+      const x1 = rect1.right - containerRect.left;
+      const y1 = rect1.top + rect1.height / 2 - containerRect.top;
+
+      const x2 = rect2.left - containerRect.left;
+      const y2 = rect2.top + rect2.height / 2 - containerRect.top;
+
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', x1);
+      line.setAttribute('y1', y1);
+      line.setAttribute('x2', x2);
+      line.setAttribute('y2', y2);
+      line.setAttribute('stroke', '#4caf50');
+      line.setAttribute('stroke-width', '3');
+      line.setAttribute('stroke-linecap', 'round');
+
+      svg.appendChild(line);
+    }
+
+    function clearLines() {
+      document.getElementById('lines-layer').innerHTML = '';
+    }
+
+    function retryBatch() {
+      setupBatchDisplay();
+    }
+
+    function manualNextBatch() {
+      currentBatchIndex++;
+      loadBatch(currentBatchIndex);
+    }
+
+    function loadCustomData() {
+      const input = document.getElementById('json-input').value.trim();
+      if (!input) return;
+
+      try {
+        const parsed = JSON.parse(input);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          fullVocab = parsed;
+          initGame();
+          document.getElementById('json-input').value = '';
+          document.getElementById('status-msg').innerText = "New vocabulary loaded successfully!";
+        } else {
+          alert("JSON must be a non-empty array of objects.");
+        }
+      } catch (e) {
+        alert("Invalid JSON format. Make sure to paste the exact output from the LLM prompt.");
+      }
+    }
+
+    // Window resize redraw lines handling
+    window.addEventListener('resize', () => {
+      clearLines();
+      matchedPairs.forEach(pair => drawLine(pair.left, pair.right));
+    });
+
+    // Start App
+    initGame();
+  </script>
+</body>
+</html>
